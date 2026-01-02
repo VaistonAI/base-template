@@ -15,7 +15,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { FaPlus, FaEdit, FaTrash, FaFileInvoiceDollar, FaDollarSign, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { Timestamp, orderBy } from 'firebase/firestore';
 import type { Invoice, InvoiceStatus, InvoiceItem, Payment, PaymentMethod } from '../../types/invoice';
-import type { Patient } from '../../types/patient';
 
 export const InvoiceList: React.FC = () => {
     const { currentUser } = useAuth();

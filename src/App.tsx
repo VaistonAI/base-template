@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { useConfig } from './contexts/ConfigContext';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { PublicRoute } from './routes/PublicRoute';
 
@@ -12,7 +13,7 @@ import { TermsAndConditions } from './pages/auth/TermsAndConditions';
 import { Dashboard } from './pages/dashboard/Dashboard';
 import { ChartsPage } from './pages/charts/ChartsPage';
 import { Profile } from './pages/profile/Profile';
-import { PatientList } from './pages/patients/PatientList';
+import { UniversalCRUD } from './pages/patients/UniversalCRUD';
 import { OfficeList } from './pages/offices/OfficeList';
 import { ConsultationList } from './pages/consultations/ConsultationList';
 import { InvoiceList } from './pages/billing/InvoiceList';
@@ -21,6 +22,7 @@ import { UserManagement } from './pages/users/UserManagement';
 import { HelpPage } from './pages/help/HelpPage';
 
 function App() {
+  const { config } = useConfig();
   return (
     <BrowserRouter>
       <AuthProvider>
@@ -30,7 +32,20 @@ function App() {
           <Route path="/register" element={<UserRegistration />} />
           <Route path="/terms" element={<TermsAndConditions />} />
 
-          {/* Protected Routes */}
+          {/* Dynamic Entity Routes */}
+          {config.entities.map(entity => (
+            <Route
+              key={entity.name}
+              path={`/${entity.name}`}
+              element={
+                <ProtectedRoute>
+                  <UniversalCRUD config={entity} />
+                </ProtectedRoute>
+              }
+            />
+          ))}
+
+          {/* Hardcoded Dashboard & Other Static Pages */}
           <Route
             path="/dashboard"
             element={
@@ -44,14 +59,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <ChartsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/patients"
-            element={
-              <ProtectedRoute>
-                <PatientList />
               </ProtectedRoute>
             }
           />

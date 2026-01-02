@@ -4,7 +4,6 @@ import { MainLayout } from '../../components/layout/MainLayout';
 import { Card } from '../../components/ui/Card';
 import { Spinner } from '../../components/ui/Spinner';
 import { firebaseService } from '../../services/firebaseService';
-import { useAuth } from '../../contexts/AuthContext';
 import {
     FaDatabase,
     FaCheckCircle,
@@ -13,8 +12,7 @@ import {
     FaChartArea,
     FaChartPie,
     FaList,
-    FaPlus,
-    FaFileExport
+    FaPlus
 } from 'react-icons/fa';
 import {
     AreaChart,
@@ -66,7 +64,7 @@ const PRIORITY_COLORS = {
 };
 
 export const Dashboard: React.FC = () => {
-    const { currentUser } = useAuth();
+    // const { currentUser } = useAuth(); // Unused
     const navigate = useNavigate();
     const [stats, setStats] = useState<DashboardStats>({
         totalRecords: 0,
@@ -273,7 +271,7 @@ export const Dashboard: React.FC = () => {
                                             paddingAngle={5}
                                             dataKey="value"
                                         >
-                                            {stats.categoryDistribution.map((entry, index) => (
+                                            {stats.categoryDistribution.map((_entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>

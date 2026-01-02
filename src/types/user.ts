@@ -34,7 +34,7 @@ export interface User {
 }
 
 // Función para obtener permisos por rol
-export const getPermissionsByRole = (role: UserRole): UserPermissions => {
+export const getPermissionsByRole = (_role: UserRole): UserPermissions => {
     // Todos los roles tienen acceso completo por simplificación
     return {
         canManageUsers: true,

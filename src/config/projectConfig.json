@@ -1,0 +1,101 @@
+{
+    "projectName": "Psicólogos CRM",
+    "description": "Sistema de Gestión para Psicólogos",
+    "loginTitle": "Iniciar Sesión",
+    "loginSubtitle": "Accede al sistema de demostración",
+    "theme": {
+        "primaryColor": "#1b527c",
+        "secondaryColor": "#2d9bf0",
+        "accentColor": "#55bff3",
+        "backgroundColor": "#ffffff"
+    },
+    "menuItems": [
+        {
+            "path": "/dashboard",
+            "label": "Dashboard",
+            "icon": "FaHome"
+        },
+        {
+            "path": "/patients",
+            "label": "Pacientes",
+            "icon": "FaUserInjured",
+            "permission": "canManagePatients"
+        },
+        {
+            "path": "/charts",
+            "label": "Gráficas",
+            "icon": "FaChartBar"
+        },
+        {
+            "path": "/consultations",
+            "label": "Calendario",
+            "icon": "FaCalendarAlt",
+            "permission": "canManageAppointments"
+        },
+        {
+            "path": "/billing",
+            "label": "Facturación",
+            "icon": "FaFileInvoiceDollar",
+            "permission": "canManageBilling"
+        },
+        {
+            "path": "/reports",
+            "label": "Reportes",
+            "icon": "FaChartLine",
+            "permission": "canViewReports"
+        },
+        {
+            "path": "/users",
+            "label": "Usuarios",
+            "icon": "FaUsersCog",
+            "permission": "canManageUsers"
+        },
+        {
+            "path": "/help",
+            "label": "Ayuda",
+            "icon": "FaQuestionCircle"
+        }
+    ],
+    "entities": [
+        {
+            "name": "patients",
+            "label": "Pacientes",
+            "icon": "FaUserInjured",
+            "schema": [
+                {
+                    "name": "title",
+                    "label": "Nombre Completo",
+                    "type": "text",
+                    "required": true
+                },
+                {
+                    "name": "code",
+                    "label": "Expediente",
+                    "type": "text",
+                    "required": true
+                },
+                {
+                    "name": "email",
+                    "label": "Email",
+                    "type": "email",
+                    "required": true
+                },
+                {
+                    "name": "phone",
+                    "label": "Teléfono",
+                    "type": "phone"
+                },
+                {
+                    "name": "status",
+                    "label": "Estado",
+                    "type": "select",
+                    "options": [
+                        "active",
+                        "inactive",
+                        "pending"
+                    ]
+                }
+            ]
+        }
+    ]
+}

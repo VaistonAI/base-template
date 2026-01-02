@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useConfig } from '../../contexts/ConfigContext';
 import {
     FaHome,
     FaCalendarAlt,
@@ -178,49 +179,30 @@ export const Sidebar: React.FC = () => {
 
     if (!currentUser) return null;
 
-    const menuItems: MenuItem[] = [
-        { path: '/dashboard', label: 'Dashboard', icon: <FaHome /> },
-        {
-            path: '/patients',
-            label: 'CRUD',
-            icon: <FaDatabase />,
-            permission: 'canManagePatients'
-        },
-        {
-            path: '/charts',
-            label: 'Gráficas',
-            icon: <FaChartBar />,
-        },
-        {
-            path: '/consultations',
-            label: 'Calendario',
-            icon: <FaCalendarAlt />,
-            permission: 'canManageAppointments'
-        },
-        {
-            path: '/billing',
-            label: 'Facturación',
-            icon: <FaFileInvoiceDollar />,
-            permission: 'canManageBilling'
-        },
-        {
-            path: '/reports',
-            label: 'Reportes',
-            icon: <FaChartBar />,
-            permission: 'canViewReports'
-        },
-        {
-            path: '/users',
-            label: 'Usuarios',
-            icon: <FaUsersCog />,
-            permission: 'canManageUsers'
-        },
-        {
-            path: '/help',
-            label: 'Ayuda',
-            icon: <FaQuestionCircle />,
-        },
-    ];
+    const { config } = useConfig();
+
+    // Helper to dynamically get icon component
+    const getIcon = (iconName: string) => {
+        const icons: Record<string, React.ReactNode> = {
+            FaHome: <FaHome />,
+            FaCalendarAlt: <FaCalendarAlt />,
+            FaFileInvoiceDollar: <FaFileInvoiceDollar />,
+            FaChartBar: <FaChartBar />,
+            FaUsersCog: <FaUsersCog />,
+            FaQuestionCircle: <FaQuestionCircle />,
+            FaDatabase: <FaDatabase />,
+            FaUserInjured: <FaDatabase />, // Fallback for specific icons if needed or map correctly
+            FaChartLine: <FaChartBar />, // Reuse chart icon or import specific
+        };
+        return icons[iconName] || <FaQuestionCircle />;
+    };
+
+    const menuItems: MenuItem[] = config.menuItems.map(item => ({
+        path: item.path,
+        label: item.label,
+        icon: getIcon(item.icon),
+        permission: item.permission as keyof UserPermissions | undefined
+    }));
 
     const filteredMenuItems = menuItems.filter(item => {
         if (!item.permission) return true;

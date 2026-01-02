@@ -4,7 +4,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { AlertModal } from '../../components/ui/AlertModal';
-import { FaWhatsapp, FaEnvelope } from 'react-icons/fa';
 import { validationMessages } from '../../utils/errorMessages';
 import './Login.css';
 
@@ -43,9 +42,12 @@ const FloatingParticles: React.FC = () => {
     );
 };
 
+import { useConfig } from '../../contexts/ConfigContext';
+
 export const Login: React.FC = () => {
     const navigate = useNavigate();
     const { login } = useAuth();
+    const { config } = useConfig();
 
     const [formData, setFormData] = useState({
         email: '',
@@ -89,10 +91,6 @@ export const Login: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleWhatsAppContact = () => {
-        window.open('https://wa.me/5215579987650?text=Hola,%20me%20interesa%20contratar%20el%20CRM%20de%20Psicología', '_blank');
     };
 
     return (
@@ -269,10 +267,10 @@ export const Login: React.FC = () => {
                             {/* Título Principal */}
                             <div className="mb-8">
                                 <h1 className="text-3xl lg:text-4xl font-bold mb-3 leading-tight drop-shadow-lg">
-                                    Gestiona tu Negocio de Manera Profesional
+                                    {config.projectName}
                                 </h1>
                                 <p className="text-base lg:text-lg text-white/90 drop-shadow">
-                                    Sistema completo de gestión empresarial
+                                    {config.description}
                                 </p>
                             </div>
 
@@ -359,10 +357,10 @@ export const Login: React.FC = () => {
                             {/* Header del formulario */}
                             <div className="text-center mb-6 lg:mb-8">
                                 <h2 className="text-2xl sm:text-3xl lg:text-3xl font-bold text-gray-800 mb-2">
-                                    Iniciar Sesión
+                                    {config.loginTitle}
                                 </h2>
                                 <p className="text-sm lg:text-base text-gray-600">
-                                    Accede al sistema de demostración
+                                    {config.loginSubtitle}
                                 </p>
                             </div>
 
