@@ -1,0 +1,91 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function getUserRole() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+    
+    function isPsychologist() {
+      return isAuthenticated() && getUserRole() == 'psychologist';
+    }
+    
+    function isValidSize() {
+      return request.resource.size <= 10 * 1024 * 1024;
+    }
+    
+    function isValidImageType() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isValidDocumentType() {
+      return request.resource.contentType.matches('application/pdf') ||
+             request.resource.contentType.matches('application/msword') ||
+             request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
+             request.resource.contentType.matches('text/plain');
+    }
+    
+    function isValidAttachmentType() {
+      return isValidImageType() || isValidDocumentType();
+    }
+    
+    match /users/{userId}/avatar/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isValidImageType() && isValidSize();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+    
+    match /patients/{patientId}/documents/{fileName} {
+      allow read: if isPsychologist() || isAdmin();
+      allow write: if (isPsychologist() || isAdmin()) && isValidDocumentType() && isValidSize();
+      allow delete: if isAdmin();
+    }
+    
+    match /sessions/{sessionId}/attachments/{fileName} {
+      allow read: if isPsychologist() || isAdmin();
+      allow write: if (isPsychologist() || isAdmin()) && isValidAttachmentType() && isValidSize();
+      allow delete: if isPsychologist() || isAdmin();
+    }
+    
+    match /invoices/{invoiceId}/documents/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.contentType.matches('application/pdf') && isValidSize();
+      allow delete: if isAdmin();
+    }
+    
+    match /app/{resource=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    match /backups/{backupId}/{fileName} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    match /temp/{userId}/{fileName} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) && isValidSize();
+      allow delete: if isOwner(userId);
+    }
+    
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

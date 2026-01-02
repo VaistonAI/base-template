@@ -1,0 +1,580 @@
+import React, { useState, useEffect } from 'react';
+import { Modal } from '../ui/Modal';
+import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
+import { Select } from '../ui/Select';
+import { TextArea } from '../ui/TextArea';
+import { ConfirmModal } from '../ui/ConfirmModal';
+import { SuccessModal } from '../ui/SuccessModal';
+import { AlertModal } from '../ui/AlertModal';
+import { firebaseService } from '../../services/firebaseService';
+import { Timestamp } from 'firebase/firestore';
+import type { Consultation, ConsultationFormData } from '../../types/consultation';
+import type { Patient } from '../../types/patient';
+import type { Office } from '../../types/office';
+import type { User } from '../../types/user';
+import { FaInfoCircle, FaNotesMedical, FaDollarSign } from 'react-icons/fa';
+import { useAuth } from '../../contexts/AuthContext';
+
+interface ConsultationModalProps {
+    consultation: Consultation | null;
+    onClose: () => void;
+}
+
+type TabType = 'info' | 'notes' | 'payment';
+
+export const ConsultationModal: React.FC<ConsultationModalProps> = ({ consultation, onClose }) => {
+    const { currentUser } = useAuth();
+    const [activeTab, setActiveTab] = useState<TabType>('info');
+    const [loading, setLoading] = useState(false);
+    const [patients, setPatients] = useState<Patient[]>([]);
+    const [offices, setOffices] = useState<Office[]>([]);
+    const [psychologists, setPsychologists] = useState<User[]>([]);
+
+    // Estados para modales personalizados
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [showErrorModal, setShowErrorModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
+    const [deleting, setDeleting] = useState(false);
+
+    const [formData, setFormData] = useState<ConsultationFormData>({
+        patientId: '',
+        psychologistId: '',
+        officeId: '',
+        date: new Date(),
+        time: '09:00',
+        duration: 60,
+        status: 'scheduled',
+        reason: '',
+        notes: '',
+        diagnosis: '',
+        treatmentPlan: '',
+        nextSessionGoals: '',
+        amount: undefined,
+        paymentMethod: undefined,
+        tax: 16,
+    });
+
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    useEffect(() => {
+        if (consultation) {
+            const consultationDate = consultation.date.toDate();
+            setFormData({
+                patientId: consultation.patientId,
+                psychologistId: consultation.psychologistId || '',
+                officeId: consultation.officeId,
+                date: consultationDate,
+                time: `${consultationDate.getHours().toString().padStart(2, '0')}:${consultationDate.getMinutes().toString().padStart(2, '0')}`,
+                duration: consultation.duration,
+                status: consultation.status,
+                reason: consultation.reason || '',
+                notes: consultation.notes || '',
+                diagnosis: consultation.diagnosis || '',
+                treatmentPlan: consultation.treatmentPlan || '',
+                nextSessionGoals: consultation.nextSessionGoals || '',
+                amount: consultation.amount,
+                paymentMethod: consultation.paymentMethod,
+                tax: 16,
+            });
+        }
+    }, [consultation]);
+
+    const loadData = async () => {
+        try {
+            const [patientsData, officesData, usersData] = await Promise.all([
+                firebaseService.getAll<Patient>('patients'),
+                firebaseService.getAll<Office>('offices'),
+                firebaseService.getAll<User>('users'),
+            ]);
+            setPatients(patientsData.filter(p => p.status === 'active'));
+            setOffices(officesData);
+            // Filtrar solo psicólogos (role: 'psychologist' o similar)
+            setPsychologists(usersData.filter(u => u.role === 'psychologist' || u.role === 'admin'));
+        } catch (error) {
+            console.error('Error loading data:', error);
+        }
+    };
+
+    const validate = (): boolean => {
+        const newErrors: Record<string, string> = {};
+
+        if (!formData.patientId) newErrors.patientId = 'Campo Paciente obligatorio';
+        if (!formData.psychologistId) newErrors.psychologistId = 'Campo Psicólogo obligatorio';
+        if (!formData.officeId) newErrors.officeId = 'Campo Consultorio obligatorio';
+        if (!formData.date) newErrors.date = 'Campo Fecha obligatorio';
+        if (!formData.time) newErrors.time = 'Campo Hora obligatorio';
+        if (!formData.duration || formData.duration <= 0) newErrors.duration = 'Duración debe ser mayor a 0';
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = async () => {
+        if (!validate()) {
+            setActiveTab('info');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const [hours, minutes] = formData.time.split(':').map(Number);
+            // Crear fecha en zona horaria local para evitar desfase de días
+            const consultationDate = new Date(
+                formData.date.getFullYear(),
+                formData.date.getMonth(),
+                formData.date.getDate(),
+                hours,
+                minutes,
+                0,
+                0
+            );
+
+            const selectedPatient = patients.find(p => p.id === formData.patientId);
+            const selectedOffice = offices.find(o => o.id === formData.officeId);
+
+            // Crear objeto base sin campos undefined
+            const consultationData: any = {
+                patientId: formData.patientId,
+                patientName: selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : '',
+                officeId: formData.officeId,
+                officeName: selectedOffice?.name || '',
+                date: Timestamp.fromDate(consultationDate),
+                duration: formData.duration,
+                status: formData.status,
+                reason: formData.reason || '',
+                notes: formData.notes || '',
+                diagnosis: formData.diagnosis || '',
+                treatmentPlan: formData.treatmentPlan || '',
+                nextSessionGoals: formData.nextSessionGoals || '',
+                updatedAt: Timestamp.now(),
+            };
+
+            // Solo agregar amount y paymentMethod si tienen valores definidos
+            if (formData.amount !== undefined && formData.amount !== null) {
+                consultationData.amount = formData.amount;
+            }
+            if (formData.paymentMethod) {
+                consultationData.paymentMethod = formData.paymentMethod;
+            }
+
+            // Determinar paymentStatus
+            consultationData.paymentStatus = (formData.amount && formData.paymentMethod) ? 'paid' : 'pending';
+
+            if (consultation) {
+                await firebaseService.update('consultations', consultation.id, consultationData);
+            } else {
+                // Crear la consulta
+                const consultationId = await firebaseService.create('consultations', {
+                    ...consultationData,
+                    paymentStatus: 'pending',
+                    createdBy: currentUser?.uid || '',
+                    createdAt: Timestamp.now(),
+                } as Consultation);
+
+                // Generar factura pendiente automáticamente
+                const selectedPatient = patients.find(p => p.id === formData.patientId);
+                const defaultAmount = 0; // Monto por defecto, se puede actualizar después
+
+                // Generar número de factura automático
+                const invoiceNumber = `FAC-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+
+                const invoiceData = {
+                    invoiceNumber: invoiceNumber,
+                    patientId: formData.patientId,
+                    patientName: selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : '',
+                    concept: `Consulta - ${formData.reason || 'Sesión terapéutica'}`,
+                    amount: defaultAmount,
+                    tax: 0,
+                    total: 0,
+                    issueDate: Timestamp.now(),
+                    dueDate: Timestamp.fromDate(consultationDate), // Vence el día de la consulta
+                    status: 'pending' as const,
+                    createdBy: currentUser?.uid || '',
+                    createdAt: Timestamp.now(),
+                    updatedAt: Timestamp.now(),
+                };
+
+                const invoiceId = await firebaseService.create('invoices', invoiceData);
+
+                // Vincular factura con consulta
+                await firebaseService.update('consultations', consultationId, {
+                    invoiceId: invoiceId,
+                });
+            }
+
+            setSuccessMessage('Consulta guardada correctamente');
+            setShowSuccessModal(true);
+        } catch (error) {
+            console.error('Error saving consultation:', error);
+            setErrorMessage('Error al guardar la consulta');
+            setShowErrorModal(true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handlePayment = async () => {
+        if (!formData.amount || formData.amount <= 0) {
+            setErrorMessage('Ingresa un monto válido');
+            setShowErrorModal(true);
+            return;
+        }
+        if (!formData.paymentMethod) {
+            setErrorMessage('Selecciona un método de pago');
+            setShowErrorModal(true);
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const paymentData = {
+                amount: formData.amount,
+                paymentMethod: formData.paymentMethod,
+                paymentStatus: 'paid' as const,
+                updatedAt: Timestamp.now(),
+            };
+
+            if (consultation) {
+                await firebaseService.update('consultations', consultation.id, paymentData);
+
+                // Actualizar factura existente en lugar de crear una nueva
+                if (consultation.invoiceId) {
+                    const invoiceUpdateData = {
+                        amount: formData.amount,
+                        tax: formData.amount * 0.16,
+                        total: formData.amount * 1.16,
+                        status: 'paid' as const,
+                        paymentMethod: formData.paymentMethod,
+                        paymentDate: Timestamp.now(),
+                        updatedAt: Timestamp.now(),
+                    };
+
+                    await firebaseService.update('invoices', consultation.invoiceId, invoiceUpdateData);
+                } else {
+                    // Si por alguna razón no tiene factura, crear una nueva
+                    const selectedPatient = patients.find(p => p.id === consultation.patientId);
+                    const invoiceNumber = `FAC-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+
+                    const invoiceData = {
+                        invoiceNumber: invoiceNumber,
+                        patientId: consultation.patientId,
+                        patientName: selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : '',
+                        concept: `Consulta - ${consultation.reason || 'Sesión terapéutica'}`,
+                        amount: formData.amount,
+                        tax: formData.amount * 0.16,
+                        total: formData.amount * 1.16,
+                        issueDate: Timestamp.now(),
+                        dueDate: Timestamp.now(),
+                        status: 'paid' as const,
+                        paymentMethod: formData.paymentMethod,
+                        paymentDate: Timestamp.now(),
+                        createdBy: currentUser?.uid || '',
+                        createdAt: Timestamp.now(),
+                        updatedAt: Timestamp.now(),
+                    };
+
+                    const invoiceId = await firebaseService.create('invoices', invoiceData);
+
+                    await firebaseService.update('consultations', consultation.id, {
+                        invoiceId: invoiceId,
+                    });
+                }
+
+                setSuccessMessage('Pago registrado y factura actualizada correctamente');
+                setShowSuccessModal(true);
+            }
+        } catch (error) {
+            console.error('Error processing payment:', error);
+            setErrorMessage('Error al procesar el pago');
+            setShowErrorModal(true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!consultation) return;
+        setShowDeleteModal(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!consultation) return;
+
+        setDeleting(true);
+        try {
+            // Eliminar factura vinculada si existe
+            if (consultation.invoiceId) {
+                await firebaseService.delete('invoices', consultation.invoiceId);
+            }
+
+            // Eliminar consulta
+            await firebaseService.delete('consultations', consultation.id);
+
+            setSuccessMessage('Consulta eliminada correctamente');
+            setShowDeleteModal(false);
+            setShowSuccessModal(true);
+        } catch (error) {
+            console.error('Error deleting consultation:', error);
+            setErrorMessage('Error al eliminar la consulta');
+            setShowErrorModal(true);
+        } finally {
+            setDeleting(false);
+        }
+    };
+
+    const tabs = [
+        { id: 'info' as TabType, label: 'Información', icon: FaInfoCircle, enabled: true },
+        { id: 'notes' as TabType, label: 'Notas Clínicas', icon: FaNotesMedical, enabled: true },
+        { id: 'payment' as TabType, label: 'Cobro', icon: FaDollarSign, enabled: true },
+    ];
+
+    return (
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title={consultation ? 'Editar Consulta' : 'Nueva Consulta'}
+            size="xl"
+        >
+            <div className="space-y-6">
+                {/* Tabs */}
+                <div className="border-b border-border">
+                    <nav className="flex gap-4">
+                        {tabs.map((tab) => {
+                            const Icon = tab.icon;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => tab.enabled && setActiveTab(tab.id)}
+                                    disabled={!tab.enabled}
+                                    className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === tab.id
+                                        ? 'border-primary text-primary font-medium'
+                                        : tab.enabled
+                                            ? 'border-transparent text-text-secondary hover:text-text-primary'
+                                            : 'border-transparent text-text-secondary/40 cursor-not-allowed'
+                                        }`}
+                                >
+                                    <Icon />
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
+                    </nav>
+                </div>
+
+                {/* Tab Content */}
+                <div className="min-h-[400px]">
+                    {/* Tab 1: Información Básica */}
+                    {activeTab === 'info' && (
+                        <div className="space-y-4">
+                            <Select
+                                label="Paciente"
+                                value={formData.patientId}
+                                onChange={(e) => setFormData({ ...formData, patientId: e.target.value })}
+                                error={errors.patientId}
+                                required
+                            >
+                                <option value="">Seleccionar paciente</option>
+                                {patients.map((patient) => (
+                                    <option key={patient.id} value={patient.id}>
+                                        {patient.firstName} {patient.lastName}
+                                    </option>
+                                ))}
+                            </Select>
+
+                            <Select
+                                label="Consultorio"
+                                value={formData.officeId}
+                                onChange={(e) => setFormData({ ...formData, officeId: e.target.value })}
+                                error={errors.officeId}
+                                required
+                            >
+                                <option value="">Seleccionar consultorio</option>
+                                {offices.map((office) => (
+                                    <option key={office.id} value={office.id}>
+                                        {office.name}
+                                    </option>
+                                ))}
+                            </Select>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <Input
+                                    label="Fecha"
+                                    type="date"
+                                    value={formData.date.toISOString().split('T')[0]}
+                                    onChange={(e) => setFormData({ ...formData, date: new Date(e.target.value) })}
+                                    error={errors.date}
+                                    required
+                                />
+                                <Input
+                                    label="Hora"
+                                    type="time"
+                                    value={formData.time}
+                                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                                    error={errors.time}
+                                    required
+                                />
+                            </div>
+
+                            <Input
+                                label="Duración (minutos)"
+                                type="number"
+                                value={formData.duration}
+                                onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
+                                error={errors.duration}
+                                required
+                            />
+
+                            <Select
+                                label="Estado"
+                                value={formData.status}
+                                onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                                required
+                            >
+                                <option value="scheduled">Programada</option>
+                                <option value="in-progress">En Curso</option>
+                                <option value="completed">Completada</option>
+                                <option value="cancelled">Cancelada</option>
+                            </Select>
+
+                            <TextArea
+                                label="Motivo de Consulta"
+                                value={formData.reason}
+                                onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                                rows={3}
+                                placeholder="¿Por qué viene el paciente?"
+                            />
+                        </div>
+                    )}
+
+                    {/* Tab 2: Notas Clínicas */}
+                    {activeTab === 'notes' && (
+                        <div className="space-y-4">
+                            <TextArea
+                                label="Notas de la Sesión"
+                                value={formData.notes}
+                                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                rows={4}
+                                placeholder="Observaciones durante la sesión..."
+                            />
+
+                            <TextArea
+                                label="Diagnóstico"
+                                value={formData.diagnosis}
+                                onChange={(e) => setFormData({ ...formData, diagnosis: e.target.value })}
+                                rows={3}
+                                placeholder="Diagnóstico clínico..."
+                            />
+
+                            <TextArea
+                                label="Plan de Tratamiento"
+                                value={formData.treatmentPlan}
+                                onChange={(e) => setFormData({ ...formData, treatmentPlan: e.target.value })}
+                                rows={3}
+                                placeholder="Estrategias y objetivos terapéuticos..."
+                            />
+
+                            <TextArea
+                                label="Objetivos para Próxima Sesión"
+                                value={formData.nextSessionGoals}
+                                onChange={(e) => setFormData({ ...formData, nextSessionGoals: e.target.value })}
+                                rows={3}
+                                placeholder="Metas para trabajar en la siguiente sesión..."
+                            />
+                        </div>
+                    )}
+
+                    {/* Tab 3: Cobro */}
+                    {activeTab === 'payment' && (
+                        <div className="space-y-4">
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                <p className="text-sm text-blue-800 font-medium mb-1">
+                                    � Registrar Cobro de Consulta
+                                </p>
+                                <p className="text-xs text-blue-700">
+                                    Ingresa el monto y método de pago. Al registrar el pago, se actualizará automáticamente la factura vinculada a esta consulta.
+                                </p>
+                            </div>
+
+                            <Input
+                                label="Monto"
+                                type="number"
+                                value={formData.amount || ''}
+                                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || undefined })}
+                                placeholder="0.00"
+                                required
+                            />
+
+                            <Select
+                                label="Método de Pago"
+                                value={formData.paymentMethod || ''}
+                                onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as any })}
+                                required
+                            >
+                                <option value="">Seleccionar método</option>
+                                <option value="cash">Efectivo</option>
+                                <option value="card">Tarjeta</option>
+                                <option value="transfer">Transferencia</option>
+                            </Select>
+
+                            <Button
+                                onClick={handlePayment}
+                                variant="primary"
+                                className="w-full"
+                                isLoading={loading}
+                            >
+                                Registrar Pago y Generar Factura
+                            </Button>
+                        </div>
+                        </Button>
+                {activeTab === 'info' && (
+                    <Button onClick={handleSubmit} variant="primary" isLoading={loading}>
+                        {consultation ? 'Actualizar' : 'Crear'} Consulta
+                    </Button>
+                )}
+                {activeTab === 'notes' && (
+                    <Button onClick={handleSubmit} variant="primary" isLoading={loading}>
+                        Guardar Notas
+                    </Button>
+                )}
+            </div>
+        </div>
+            </div >
+        </Modal >
+
+    {/* Modales Personalizados */ }
+    < SuccessModal
+isOpen = { showSuccessModal }
+onClose = {() => {
+    setShowSuccessModal(false);
+    onClose();
+}}
+title = "¡Operación exitosa!"
+message = { successMessage }
+    />
+
+        <AlertModal
+            isOpen={showErrorModal}
+            onClose={() => setShowErrorModal(false)}
+            title="Error"
+            message={errorMessage}
+            type="error"
+        />
+
+        <ConfirmModal
+            isOpen={showDeleteModal}
+            onClose={() => setShowDeleteModal(false)}
+            onConfirm={confirmDelete}
+            title="Eliminar Consulta"
+            message="¿Estás seguro de que deseas eliminar esta consulta? Esta acción no se puede deshacer. También se eliminará la factura vinculada si existe."
+            confirmText="Eliminar"
+            isLoading={deleting}
+        />
+    </>
+};

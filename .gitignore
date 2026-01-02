@@ -1,0 +1,22 @@
+# SSH keys
+vaistonai_ssh_key
+vaistonai_ssh_key.pub
+
+# Environment
+.env
+
+# Firebase / Secrets
+serviceAccountKey.json
+
+# Node
+node_modules/
+dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db

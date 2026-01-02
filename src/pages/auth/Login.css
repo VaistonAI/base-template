@@ -1,0 +1,90 @@
+/* Animaciones personalizadas para el login */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+/* Transiciones suaves para el foco */
+.login-input-group input:focus {
+    box-shadow: 0 0 0 3px rgba(27, 82, 124, 0.1);
+}
+
+/* Efecto hover en desktop */
+@media (hover: hover) {
+    .form-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    }
+
+    .feature-item:hover {
+        background-color: rgba(255, 255, 255, 0.15);
+        transform: translateX(4px);
+    }
+}
+
+/* Ajustes para móvil */
+@media (max-width: 640px) {
+    .login-container {
+        padding: 1rem;
+    }
+
+    .form-card {
+        border-radius: 1.5rem;
+        padding: 1.25rem;
+    }
+
+    /* Prevenir zoom en inputs en iOS */
+    input[type="email"],
+    input[type="password"],
+    textarea,
+    select {
+        font-size: 16px !important;
+    }
+}
+
+/* Optimización para pantallas muy pequeñas */
+@media (max-height: 667px) {
+    .login-left-panel {
+        display: none !important;
+    }
+}
+
+/* Scroll suave */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Optimización para reducir movimiento */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
